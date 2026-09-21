@@ -3,7 +3,7 @@
 **SQLite para videos largos.**
 
 [![PyPI](https://img.shields.io/pypi/v/tape-video.svg)](https://pypi.org/project/tape-video/)
-[![License](https://img.shields.io/pypi/l/tape-video.svg)](https://github.com/EmanuelCorreaAR/tape/blob/main/LICENSE)
+[![License](https://img.shields.io/pypi/l/tape-video.svg)](https://github.com/EmanuelCorreaAR/tape-video/blob/main/LICENSE)
 
 Tape convierte un video largo en un índice temporal chico, local y consultable — y después te deja cortar y comprimir solo lo activo.
 
@@ -24,8 +24,8 @@ tape doctor
 Desde el repo (desarrollo):
 
 ```bash
-git clone https://github.com/EmanuelCorreaAR/tape.git
-cd tape
+git clone https://github.com/EmanuelCorreaAR/tape-video.git
+cd tape-video
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .

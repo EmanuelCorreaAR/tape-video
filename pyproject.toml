@@ -32,8 +32,8 @@ dev = ["pytest>=8"]
 tape = "tape.cli:app"
 
 [project.urls]
-Homepage = "https://github.com/EmanuelCorreaAR/tape"
-Repository = "https://github.com/EmanuelCorreaAR/tape"
+Homepage = "https://github.com/EmanuelCorreaAR/tape-video"
+Repository = "https://github.com/EmanuelCorreaAR/tape-video"
 
 [tool.setuptools.packages.find]
 where = ["src"]
