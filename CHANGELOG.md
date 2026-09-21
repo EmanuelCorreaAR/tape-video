@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.4 — 2026-09-21
+
+- `tape analyze` — estima el recorte sin generar video
+- Modo adaptativo: si todo queda “activo”, sube umbrales al percentil
+- Aviso claro cuando casi no hay nada que recortar
+- `--target-keep` / `--no-adaptive` en digest y compress
+
 ## 0.1.3 — 2026-09-21
 
 - CLI más claro: paneles, epilog con ejemplos, atajos `-o/-m/-a/-f`

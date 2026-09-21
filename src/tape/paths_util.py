@@ -27,8 +27,9 @@ def looks_like_video(path: Path) -> bool:
 EPILOG = """
 Ejemplos:
   tape doctor
+  tape analyze partido.mp4
   tape digest partido.mp4
-  tape digest partido.mp4 --out corto.mp4 --motion 0.08
+  tape digest partido.mp4 --target-keep 0.30
   tape info partido.mp4
   tape sql partido.mp4 "SELECT t0, motion FROM timeline_bins LIMIT 5"
 

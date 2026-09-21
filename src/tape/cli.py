@@ -161,6 +161,55 @@ def index_cmd(
         _handle_ffmpeg(e)
 
 
+@app.command("analyze")
+def analyze_cmd(
+    video: Path = typer.Argument(..., exists=True, readable=True, help="Video o .tape"),
+    motion: float = typer.Option(0.12, "--motion", "-m", help="Umbral fijo de movimiento"),
+    audio: float = typer.Option(0.18, "--audio", "-a", help="Umbral fijo de audio"),
+    target_keep: float = typer.Option(
+        0.45, "--target-keep", help="Si hay que adaptar: fracción a conservar (0–1)"
+    ),
+    force: bool = typer.Option(False, "--force", "-f", help="Reindexar"),
+    no_adaptive: bool = typer.Option(False, "--no-adaptive", help="No subir umbrales automáticamente"),
+) -> None:
+    """Estima cuánto se recortaría, sin generar video (rápido)."""
+    from tape.analyze import analyze_db
+
+    video = _ensure_video_arg(video)
+    try:
+        if video.name.endswith(".tape"):
+            db = video
+        else:
+            db = tape_path_for(video.resolve())
+            if force or not db.exists():
+                index_video(video, force=force or db.exists())
+        result = analyze_db(
+            db,
+            motion_thresh=motion,
+            audio_thresh=audio,
+            adaptive=not no_adaptive,
+            target_keep=target_keep,
+        )
+        body = [
+            f"[bold]Duración[/bold]   {fmt_duration(result.duration_s)}",
+            f"[bold]Estimado[/bold]   {fmt_duration(result.kept_s)}  ({compression_ratio(result.duration_s, result.kept_s)})",
+            f"[bold]Tramos ~[/bold]   {result.n_segments_est}",
+            f"[bold]Modo[/bold]       {result.mode}",
+            f"[bold]Umbrales[/bold]   motion≥{result.motion_thresh:.2f}  audio≥{result.audio_thresh:.2f}",
+        ]
+        if result.ratio >= 0.95:
+            body.append("")
+            body.append("[yellow]Casi no hay pausas: el digest no va a acortar mucho.[/yellow]")
+        elif result.mode == "adaptive":
+            body.append("")
+            body.append("[dim]Umbrales fijos dejaban demasiado activo; se adaptaron.[/dim]")
+        console.print(Panel("\n".join(body), title="analyze", border_style="cyan"))
+        _print_timeline(db, motion=result.motion_thresh, audio=result.audio_thresh)
+        console.print("[dim]Para generar el video:  tape digest VIDEO[/dim]")
+    except FFmpegNotFoundError as e:
+        _handle_ffmpeg(e)
+
+
 @app.command("digest")
 def digest_cmd(
     video: Path = typer.Argument(..., exists=True, readable=True, help="Video de entrada"),
@@ -172,7 +221,11 @@ def digest_cmd(
     ),
     motion: float = typer.Option(0.12, "--motion", "-m", help="Umbral de movimiento 0..1"),
     audio: float = typer.Option(0.18, "--audio", "-a", help="Umbral de audio 0..1"),
+    target_keep: float = typer.Option(
+        0.45, "--target-keep", help="En modo adaptativo: fracción a conservar"
+    ),
     force: bool = typer.Option(False, "--force", "-f", help="Reindexar aunque ya exista .tape"),
+    no_adaptive: bool = typer.Option(False, "--no-adaptive", help="Forzar umbrales fijos"),
 ) -> None:
     """Todo en uno: indexar (si hace falta) + comprimir a un digest."""
     video = _ensure_video_arg(video)
@@ -197,10 +250,16 @@ def digest_cmd(
             console.print()
 
         console.print("[bold]Paso 2/2[/bold] Comprimir tramos activos")
-        compress(video, out_path, motion_thresh=motion, audio_thresh=audio)
+        compress(
+            video,
+            out_path,
+            motion_thresh=motion,
+            audio_thresh=audio,
+            adaptive=not no_adaptive,
+            target_keep=target_keep,
+        )
     except FFmpegNotFoundError as e:
         _handle_ffmpeg(e)
-
 
 @app.command("sql")
 def sql_cmd(
@@ -332,16 +391,24 @@ def compress_cmd(
     ),
     motion: float = typer.Option(0.12, "--motion", "-m", help="Umbral de movimiento 0..1"),
     audio: float = typer.Option(0.18, "--audio", "-a", help="Umbral de audio 0..1"),
+    target_keep: float = typer.Option(0.45, "--target-keep", help="Fracción a conservar si adapta"),
+    no_adaptive: bool = typer.Option(False, "--no-adaptive", help="Forzar umbrales fijos"),
 ) -> None:
     """Deja solo tramos activos → un video más corto + resumen .txt."""
     try:
         video, db = resolve_db(target)
         out_path = out or default_digest_path(video)
         _print_timeline(db, motion=motion, audio=audio)
-        compress(target, out_path, motion_thresh=motion, audio_thresh=audio)
+        compress(
+            target,
+            out_path,
+            motion_thresh=motion,
+            audio_thresh=audio,
+            adaptive=not no_adaptive,
+            target_keep=target_keep,
+        )
     except FFmpegNotFoundError as e:
         _handle_ffmpeg(e)
-
 @app.command("segments")
 def segments_cmd(
     target: Path = typer.Argument(..., help="Video o archivo .tape"),

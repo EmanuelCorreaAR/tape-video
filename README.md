@@ -94,6 +94,7 @@ tape digest video.mp4 --out digest.mp4 --motion 0.08 --audio 0.12
 
 | Comando | Qué hace |
 |---------|----------|
+| `tape analyze VIDEO` | Estima el recorte sin generar video |
 | `tape doctor` | Chequea ffmpeg y el entorno |
 | `tape digest VIDEO --out digest.mp4` | Todo en uno: indexar + comprimir |
 | `tape index VIDEO` | Arma `VIDEO.tape` (movimiento + audio) |
@@ -147,7 +148,7 @@ sqlite3 lecture.mp4.tape ".schema"
 
 ## Estado
 
-**v0.1.3** en [PyPI](https://pypi.org/project/tape-video/) — útil para experimentos y demos.  
+**v0.1.4** en [PyPI](https://pypi.org/project/tape-video/) — útil para experimentos y demos.  
 El schema puede evolucionar; `tape_version` vive en `meta`. Ver [CHANGELOG.md](CHANGELOG.md).
 
 ## Apoyar el proyecto

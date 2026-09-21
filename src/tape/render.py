@@ -127,20 +127,65 @@ def compress(
     kind: str = "activity",
     motion_thresh: float = 0.12,
     audio_thresh: float = 0.18,
+    adaptive: bool = True,
+    target_keep: float = 0.45,
 ) -> Path:
+    from tape.analyze import analyze_db
+
     video, db = resolve_db(video_or_db)
-    console.print("[bold]Buscando tramos activos[/bold] (movimiento o audio alto)…")
-    detect_activity(
+    analysis = analyze_db(
         db,
         motion_thresh=motion_thresh,
         audio_thresh=audio_thresh,
+        adaptive=adaptive,
+        target_keep=target_keep,
+    )
+    m_t = analysis.motion_thresh
+    a_t = analysis.audio_thresh
+
+    if analysis.mode == "adaptive":
+        console.print(
+            f"[yellow]Umbrales fijos dejaban casi todo activo.[/yellow] "
+            f"Paso a modo adaptativo → conservar ~{target_keep:.0%} más intenso "
+            f"(motion/audio ≥ {m_t:.2f})"
+        )
+    else:
+        console.print(
+            f"[bold]Buscando tramos activos[/bold] "
+            f"(movimiento ≥ {m_t:.2f} o audio ≥ {a_t:.2f})…"
+        )
+
+    min_dur = 2.0 if analysis.duration_s >= 30 else 0.5
+    pad = 0.5 if analysis.duration_s >= 30 else 0.25
+
+    detect_activity(
+        db,
+        motion_thresh=m_t,
+        audio_thresh=a_t,
+        min_duration_s=min_dur,
+        pad_s=pad,
         quiet=True,
     )
     segs = list_segments(db, kind=kind)
     if not segs:
         raise SystemExit(
             "No encontré tramos activos. Probá bajar umbrales:\n"
-            "  tape compress VIDEO --out digest.mp4 --motion 0.08 --audio 0.10"
+            "  tape digest VIDEO -m 0.05 -a 0.05 --no-adaptive"
+        )
+
+    kept_est = sum(float(s["end_s"]) - float(s["start_s"]) for s in segs)
+    ratio_est = kept_est / analysis.duration_s if analysis.duration_s else 0
+    if ratio_est >= 0.95:
+        console.print(
+            Panel(
+                "Este video casi no tiene pausas detectables.\n"
+                "El digest va a quedar casi igual al original.\n\n"
+                "Probá un video más largo, o:\n"
+                "  tape analyze VIDEO\n"
+                "  tape digest VIDEO --target-keep 0.30",
+                title="[yellow]Poco que recortar[/yellow]",
+                border_style="yellow",
+            )
         )
 
     out.parent.mkdir(parents=True, exist_ok=True)
@@ -224,10 +269,11 @@ def compress(
         f"Original:   {fmt_duration(original)}",
         f"Digest:     {fmt_duration(kept)}  ({compression_ratio(original, kept)})",
         f"Tramos:     {len(segs)}",
+        f"Modo:       {analysis.mode}",
         f"Video:      {out.resolve()}",
         "",
         "Qué se consideró activo:",
-        f"  movimiento ≥ {motion_thresh:.2f}  O  audio ≥ {audio_thresh:.2f}",
+        f"  movimiento ≥ {m_t:.2f}  O  audio ≥ {a_t:.2f}",
         "",
         "Tramos incluidos (tiempo en el original):",
     ]
@@ -248,8 +294,9 @@ def compress(
         "kept_s": kept,
         "segments": len(segs),
         "ratio": kept / original if original else 0,
-        "motion_thresh": motion_thresh,
-        "audio_thresh": audio_thresh,
+        "mode": analysis.mode,
+        "motion_thresh": m_t,
+        "audio_thresh": a_t,
         "video": str(out.resolve()),
         "report": str(report_path.resolve()),
         "tramos": [
@@ -266,14 +313,18 @@ def compress(
     json_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
     console.print()
+    note = ""
+    if kept / original >= 0.95 if original else False:
+        note = "\n\n[yellow]Casi no se recortó: el video no tiene pausas claras.[/yellow]"
     summary = (
         f"[bold]{fmt_duration(original)}[/bold]  →  [bold green]{fmt_duration(kept)}[/bold green]"
         f"  ({compression_ratio(original, kept)})\n"
-        f"Tramos: {len(segs)}\n\n"
+        f"Tramos: {len(segs)}  ·  modo: {analysis.mode}\n\n"
         f"[cyan]Video[/cyan]    {out.resolve()}\n"
         f"[cyan]Resumen[/cyan]  {report_path.resolve()}\n"
         f"[cyan]JSON[/cyan]     {json_path.resolve()}\n\n"
-        f"[dim]Activo = movimiento ≥ {motion_thresh:.2f} o audio ≥ {audio_thresh:.2f}[/dim]"
+        f"[dim]Activo = movimiento ≥ {m_t:.2f} o audio ≥ {a_t:.2f}[/dim]"
+        f"{note}"
     )
     console.print(Panel(summary, title="[bold green]Digest listo[/bold green]", border_style="green"))
     return out

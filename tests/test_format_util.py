@@ -1,5 +1,6 @@
 from pathlib import Path
 
+from tape.analyze import percentile, suggest_adaptive_thresholds
 from tape.format_util import activity_timeline, compression_ratio, fmt_duration, fmt_ts
 from tape.paths_util import default_clips_dir, default_digest_path, looks_like_video
 
@@ -41,3 +42,17 @@ def test_looks_like_video() -> None:
     assert looks_like_video(Path("a.mp4"))
     assert looks_like_video(Path("a.MOV"))
     assert not looks_like_video(Path("a.mp4.tape"))
+
+
+def test_percentile() -> None:
+    vals = [0.0, 0.25, 0.5, 0.75, 1.0]
+    assert percentile(vals, 0) == 0.0
+    assert percentile(vals, 100) == 1.0
+    assert 0.4 <= percentile(vals, 50) <= 0.6
+
+
+def test_suggest_adaptive() -> None:
+    bins = [(i, i + 1, i / 10, 0.0) for i in range(10)]
+    m, a = suggest_adaptive_thresholds(bins, target_keep=0.3)
+    assert m == a
+    assert m > 0
