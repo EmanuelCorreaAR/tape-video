@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 — 2026-09-21
+
+- `tape digest` — todo en uno (index + compress)
+- `tape doctor` — chequea ffmpeg / entorno
+- Timeline visual en terminal (`█` activo / `·` quieto)
+
 ## 0.1.1 — 2026-09-21
 
 - Output del CLI en español y más legible

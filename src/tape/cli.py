@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -13,7 +14,13 @@ from tape import __version__
 from tape.db import connect, require_media, tape_path_for
 from tape.detect import detect_activity, list_segments
 from tape.ffmpeg_util import FFmpegNotFoundError
-from tape.format_util import compression_ratio, fmt_duration, fmt_ts
+from tape.format_util import (
+    activity_timeline,
+    compression_ratio,
+    fmt_duration,
+    fmt_ts,
+    timeline_legend,
+)
 from tape.index import index_video
 from tape.render import compress, export_segments, resolve_db
 
@@ -31,6 +38,27 @@ def _handle_ffmpeg(exc: FFmpegNotFoundError) -> None:
     raise typer.Exit(1)
 
 
+def _load_bins(db: Path) -> list[tuple[float, float]]:
+    conn = connect(db)
+    rows = conn.execute(
+        "SELECT motion, audio_rms FROM timeline_bins ORDER BY t0"
+    ).fetchall()
+    conn.close()
+    return [(float(r["motion"] or 0), float(r["audio_rms"] or 0)) for r in rows]
+
+
+def _print_timeline(
+    db: Path,
+    *,
+    motion: float = 0.12,
+    audio: float = 0.18,
+) -> None:
+    bins = _load_bins(db)
+    bar = activity_timeline(bins, motion_thresh=motion, audio_thresh=audio)
+    console.print(f"  Timeline: |{bar}|")
+    console.print(f"            {timeline_legend()}")
+
+
 @app.callback()
 def main() -> None:
     """Tape: índice temporal embebido para video largo."""
@@ -40,6 +68,34 @@ def main() -> None:
 def version() -> None:
     """Muestra la versión."""
     console.print(__version__)
+
+
+@app.command("doctor")
+def doctor_cmd() -> None:
+    """Chequea que el entorno esté listo (ffmpeg, Python, etc.)."""
+    console.print("[bold]Tape doctor[/bold]")
+    console.print(f"  tape:     {__version__}")
+    console.print(f"  python:   ok")
+
+    ffmpeg = shutil.which("ffmpeg")
+    ffprobe = shutil.which("ffprobe")
+    if ffmpeg:
+        console.print(f"  ffmpeg:   [green]ok[/green]  ({ffmpeg})")
+    else:
+        console.print("  ffmpeg:   [red]falta[/red]  →  brew install ffmpeg")
+    if ffprobe:
+        console.print(f"  ffprobe:  [green]ok[/green]  ({ffprobe})")
+    else:
+        console.print("  ffprobe:  [red]falta[/red]  →  brew install ffmpeg")
+
+    if ffmpeg and ffprobe:
+        console.print()
+        console.print("[green]Listo para indexar videos.[/green]")
+        console.print("  tape digest video.mp4 --out digest.mp4")
+    else:
+        console.print()
+        console.print("[yellow]Instalá ffmpeg y volvé a correr: tape doctor[/yellow]")
+        raise typer.Exit(1)
 
 
 @app.command("index")
@@ -52,7 +108,35 @@ def index_cmd(
 ) -> None:
     """Analiza el video y crea el índice .tape (movimiento + audio)."""
     try:
-        index_video(video, bin_s=bin_s, sample_fps=sample_fps, force=force, db_path=db)
+        out = index_video(video, bin_s=bin_s, sample_fps=sample_fps, force=force, db_path=db)
+        _print_timeline(out)
+    except FFmpegNotFoundError as e:
+        _handle_ffmpeg(e)
+
+
+@app.command("digest")
+def digest_cmd(
+    video: Path = typer.Argument(..., exists=True, readable=True, help="Video de entrada"),
+    out: Path = typer.Option(Path("digest.mp4"), "--out", help="Video digest de salida"),
+    motion: float = typer.Option(0.12, help="Umbral de movimiento 0..1"),
+    audio: float = typer.Option(0.18, help="Umbral de audio 0..1"),
+    force: bool = typer.Option(False, "--force", help="Reindexar aunque ya exista .tape"),
+) -> None:
+    """Todo en uno: indexar (si hace falta) + comprimir a un digest."""
+    try:
+        db = tape_path_for(video.resolve())
+        if force or not db.exists():
+            console.print("[bold]Paso 1/2[/bold] Indexar")
+            index_video(video, force=force or db.exists())
+            _print_timeline(db, motion=motion, audio=audio)
+            console.print()
+        else:
+            console.print(f"[dim]Usando índice existente:[/dim] {db.name}")
+            _print_timeline(db, motion=motion, audio=audio)
+            console.print()
+
+        console.print("[bold]Paso 2/2[/bold] Comprimir tramos activos")
+        compress(video, out, motion_thresh=motion, audio_thresh=audio)
     except FFmpegNotFoundError as e:
         _handle_ffmpeg(e)
 
@@ -83,7 +167,11 @@ def sql_cmd(
 
 
 @app.command("info")
-def info_cmd(target: Path = typer.Argument(..., help="Video o archivo .tape")) -> None:
+def info_cmd(
+    target: Path = typer.Argument(..., help="Video o archivo .tape"),
+    motion: float = typer.Option(0.12, help="Umbral para la timeline"),
+    audio: float = typer.Option(0.18, help="Umbral para la timeline"),
+) -> None:
     """Resumen del índice: duración, muestras, tramos."""
     _, db = _db_only(target)
     conn = connect(db)
@@ -96,6 +184,7 @@ def info_cmd(target: Path = typer.Argument(..., help="Video o archivo .tape")) -
     kept = conn.execute(
         "SELECT COALESCE(SUM(end_s - start_s), 0) AS k FROM segments WHERE kind = 'activity'"
     ).fetchone()["k"]
+    conn.close()
 
     console.print("[bold]Resumen del índice[/bold]")
     console.print(f"  Video:      {media['abs_path']}")
@@ -108,12 +197,12 @@ def info_cmd(target: Path = typer.Argument(..., help="Video o archivo .tape")) -
     if avg_audio is not None:
         console.print(f"  Audio:      promedio {avg_audio:.3f}")
     console.print(f"  Tramos:     {n_segs} detectados")
+    _print_timeline(db, motion=motion, audio=audio)
     if n_segs and kept:
         console.print(
             f"  Si comprimís ahora: {fmt_duration(duration)} → {fmt_duration(float(kept))} "
             f"({compression_ratio(duration, float(kept))})"
         )
-    conn.close()
 
 
 @app.command("detect")
@@ -129,6 +218,7 @@ def detect_cmd(
         "[bold]Criterio[/bold]: un segundo es activo si "
         f"movimiento ≥ {motion:.2f}  O  audio ≥ {audio:.2f}"
     )
+    _print_timeline(db, motion=motion, audio=audio)
     segs = detect_activity(
         db,
         motion_thresh=motion,
@@ -156,6 +246,7 @@ def detect_cmd(
         f"Total activo: [bold]{fmt_duration(total)}[/bold] en {len(segs)} tramos"
     )
     console.print("Siguiente:  tape compress VIDEO --out digest.mp4")
+    console.print("O todo junto:  tape digest VIDEO --out digest.mp4")
 
 
 @app.command("clip")
@@ -181,6 +272,8 @@ def compress_cmd(
 ) -> None:
     """Deja solo tramos activos → un video más corto + resumen .txt."""
     try:
+        _, db = _db_only(target)
+        _print_timeline(db, motion=motion, audio=audio)
         compress(target, out, motion_thresh=motion, audio_thresh=audio)
     except FFmpegNotFoundError as e:
         _handle_ffmpeg(e)

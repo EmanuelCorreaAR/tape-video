@@ -34,6 +34,13 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e .
 
+tape doctor
+tape digest lecture.mp4 --out digest.mp4
+```
+
+O paso a paso:
+
+```bash
 tape index lecture.mp4
 tape info lecture.mp4
 tape sql lecture.mp4 "SELECT t0, t1, motion, audio_rms FROM timeline_bins WHERE motion > 0.3 LIMIT 20"
@@ -52,8 +59,10 @@ tape compress long.mp4 --out digest.mp4
 
 | Comando | Qué hace |
 |---------|----------|
+| `tape doctor` | Chequea ffmpeg y el entorno |
+| `tape digest VIDEO --out digest.mp4` | Todo en uno: indexar + comprimir |
 | `tape index VIDEO` | Arma `VIDEO.tape` (SQLite) con bins de motion/audio cada 1s |
-| `tape info TARGET` | Muestra duración, bins y segmentos |
+| `tape info TARGET` | Muestra duración, bins, segmentos y timeline |
 | `tape sql TARGET "SELECT …"` | Consulta el índice |
 | `tape detect TARGET` | Escribe segmentos `activity` a partir de los bins |
 | `tape segments TARGET` | Lista segmentos |

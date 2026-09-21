@@ -34,3 +34,27 @@ def compression_ratio(original_s: float, kept_s: float) -> str:
         return "—"
     pct = 100.0 * kept_s / original_s
     return f"{pct:.0f}% del original"
+
+
+def activity_timeline(
+    bins: list[tuple[float, float]],
+    *,
+    motion_thresh: float = 0.12,
+    audio_thresh: float = 0.18,
+    width: int = 48,
+) -> str:
+    """bins: lista de (motion, audio_rms). █ activo · inactivo."""
+    if not bins:
+        return "(sin datos)"
+    n = len(bins)
+    chars: list[str] = []
+    for i in range(width):
+        idx = min(n - 1, int(i * n / width))
+        motion, audio = bins[idx]
+        active = motion >= motion_thresh or audio >= audio_thresh
+        chars.append("█" if active else "·")
+    return "".join(chars)
+
+
+def timeline_legend() -> str:
+    return "█ activo   · quieto/silencio"

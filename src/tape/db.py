@@ -35,5 +35,5 @@ def init_db(conn: sqlite3.Connection) -> None:
 def require_media(conn: sqlite3.Connection) -> sqlite3.Row:
     row = conn.execute("SELECT * FROM media WHERE id = 1").fetchone()
     if row is None:
-        raise SystemExit("Tape DB has no media row. Run `tape index` first.")
+        raise SystemExit("El .tape no tiene media. Corré primero: tape index VIDEO")
     return row

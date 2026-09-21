@@ -1,4 +1,4 @@
-from tape.format_util import compression_ratio, fmt_duration, fmt_ts
+from tape.format_util import activity_timeline, compression_ratio, fmt_duration, fmt_ts
 
 
 def test_fmt_duration() -> None:
@@ -10,6 +10,14 @@ def test_fmt_duration() -> None:
 def test_fmt_ts() -> None:
     assert fmt_ts(65) == "01:05"
     assert fmt_ts(3725) == "1:02:05"
+
+
+def test_activity_timeline() -> None:
+    bins = [(0.0, 0.0), (0.5, 0.0), (0.0, 0.0), (0.0, 0.5)]
+    bar = activity_timeline(bins, width=4)
+    assert len(bar) == 4
+    assert "█" in bar
+    assert "·" in bar
 
 
 def test_compression_ratio() -> None:
