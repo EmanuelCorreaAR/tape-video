@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — 2026-09-21
+
+- CLI más claro: paneles, epilog con ejemplos, atajos `-o/-m/-a/-f`
+- Default inteligente: `tape digest video.mp4` → `video_digest.mp4`
+- Barra de progreso al cortar tramos
+- `doctor` muestra versión de ffmpeg
+
 ## 0.1.2 — 2026-09-21
 
 - `tape digest` — todo en uno (index + compress)

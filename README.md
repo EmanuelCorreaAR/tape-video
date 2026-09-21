@@ -39,6 +39,13 @@ tape doctor
 Un solo comando:
 
 ```bash
+tape digest lecture.mp4
+# genera lecture_digest.mp4 (+ .txt + .json) junto al video
+```
+
+O con salida explícita:
+
+```bash
 tape digest lecture.mp4 --out digest.mp4
 ```
 
@@ -47,9 +54,9 @@ Eso indexa (si hace falta), detecta tramos activos y genera:
 | Archivo | Qué es |
 |---------|--------|
 | `lecture.mp4.tape` | Índice SQLite (línea de tiempo) |
-| `digest.mp4` | Video solo con tramos activos |
-| `digest.mp4.txt` | Resumen legible (criterio + lista de tramos) |
-| `digest.mp4.json` | Misma info en JSON |
+| `lecture_digest.mp4` | Video solo con tramos activos |
+| `lecture_digest.mp4.txt` | Resumen legible (criterio + lista de tramos) |
+| `lecture_digest.mp4.json` | Misma info en JSON |
 
 En la terminal vas a ver una timeline:
 
@@ -140,7 +147,7 @@ sqlite3 lecture.mp4.tape ".schema"
 
 ## Estado
 
-**v0.1.2** en [PyPI](https://pypi.org/project/tape-video/) — útil para experimentos y demos.  
+**v0.1.3** en [PyPI](https://pypi.org/project/tape-video/) — útil para experimentos y demos.  
 El schema puede evolucionar; `tape_version` vive en `meta`. Ver [CHANGELOG.md](CHANGELOG.md).
 
 ## Apoyar el proyecto

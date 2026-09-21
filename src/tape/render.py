@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 
 from rich.console import Console
+from rich.panel import Panel
+from rich.progress import BarColumn, Progress, TextColumn, TimeElapsedColumn
 
 from tape.db import connect, require_media, tape_path_for
 from tape.detect import detect_activity, list_segments
@@ -23,10 +25,17 @@ def resolve_db(video_or_db: Path) -> tuple[Path, Path]:
         media = require_media(conn)
         video = Path(media["abs_path"])
         conn.close()
+        if not video.exists():
+            raise SystemExit(
+                f"El índice apunta a un video que no existe:\n  {video}\n"
+                "Reindexá con:  tape index RUTA_AL_VIDEO --force"
+            )
         return video, p
     db = tape_path_for(p)
     if not db.exists():
-        raise SystemExit(f"Missing index: {db}. Run `tape index {p}` first.")
+        raise SystemExit(
+            f"Falta el índice: {db}\nCorré primero:  tape index {p.name}"
+        )
     return p, db
 
 
@@ -138,12 +147,21 @@ def compress(
     work = out.parent / f".tape_compress_{out.stem}"
     work.mkdir(exist_ok=True)
     parts: list[Path] = []
-    console.print(f"Cortando {len(segs)} tramos…")
-    for i, seg in enumerate(segs, start=1):
-        part = work / f"part_{i:04d}.mp4"
-        clip_range(video, float(seg["start_s"]), float(seg["end_s"]), part)
-        parts.append(part)
+    with Progress(
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("{task.completed}/{task.total}"),
+        TimeElapsedColumn(),
+        console=console,
+    ) as progress:
+        task = progress.add_task("Cortando tramos…", total=len(segs))
+        for i, seg in enumerate(segs, start=1):
+            part = work / f"part_{i:04d}.mp4"
+            clip_range(video, float(seg["start_s"]), float(seg["end_s"]), part)
+            parts.append(part)
+            progress.advance(task)
 
+    console.print("Uniendo clips…")
     concat_list = work / "concat.txt"
     concat_list.write_text(
         "".join(f"file '{p.resolve()}'\n" for p in parts),
@@ -201,7 +219,7 @@ def compress(
 
     report_path = out.with_suffix(out.suffix + ".txt")
     lines = [
-        "Tape — resumen del digest",
+        "tape-video — resumen del digest",
         "=" * 40,
         f"Original:   {fmt_duration(original)}",
         f"Digest:     {fmt_duration(kept)}  ({compression_ratio(original, kept)})",
@@ -248,12 +266,14 @@ def compress(
     json_path.write_text(json.dumps(meta, indent=2, ensure_ascii=False), encoding="utf-8")
 
     console.print()
-    console.print("[bold green]Digest listo[/bold green]")
-    console.print(f"  {fmt_duration(original)}  →  {fmt_duration(kept)}  ({compression_ratio(original, kept)})")
-    console.print(f"  Tramos activos: {len(segs)}")
-    console.print(f"  Video:   {out.resolve()}")
-    console.print(f"  Resumen: {report_path.resolve()}")
-    console.print(f"  JSON:    {json_path.resolve()}")
-    console.print()
-    console.print("Criterio: segundo activo si hay movimiento o audio por encima del umbral.")
+    summary = (
+        f"[bold]{fmt_duration(original)}[/bold]  →  [bold green]{fmt_duration(kept)}[/bold green]"
+        f"  ({compression_ratio(original, kept)})\n"
+        f"Tramos: {len(segs)}\n\n"
+        f"[cyan]Video[/cyan]    {out.resolve()}\n"
+        f"[cyan]Resumen[/cyan]  {report_path.resolve()}\n"
+        f"[cyan]JSON[/cyan]     {json_path.resolve()}\n\n"
+        f"[dim]Activo = movimiento ≥ {motion_thresh:.2f} o audio ≥ {audio_thresh:.2f}[/dim]"
+    )
+    console.print(Panel(summary, title="[bold green]Digest listo[/bold green]", border_style="green"))
     return out
