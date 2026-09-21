@@ -1,11 +1,13 @@
-# Tape
+# tape-video
 
 **SQLite para videos largos.**
 
 [![PyPI](https://img.shields.io/pypi/v/tape-video.svg)](https://pypi.org/project/tape-video/)
 [![License](https://img.shields.io/pypi/l/tape-video.svg)](https://github.com/EmanuelCorreaAR/tape-video/blob/main/LICENSE)
 
-Tape convierte un video largo en un índice temporal chico, local y consultable — y después te deja cortar y comprimir solo lo activo.
+**tape-video** convierte un video largo en un índice temporal chico, local y consultable — y después te deja cortar y comprimir solo lo activo.
+
+El paquete en PyPI/GitHub es `tape-video`; el comando en la terminal es `tape`.
 
 ```text
 video.mp4  →  video.mp4.tape  →  SQL / clips / digest.mp4
@@ -143,7 +145,7 @@ El schema puede evolucionar; `tape_version` vive en `meta`. Ver [CHANGELOG.md](C
 
 ## Apoyar el proyecto
 
-Si Tape te sirve, podés invitarme un cafecito: [cafecito.app/emacorreadev](https://cafecito.app/emacorreadev)
+Si tape-video te sirve, podés invitarme un cafecito: [cafecito.app/emacorreadev](https://cafecito.app/emacorreadev)
 
 ## License
 
