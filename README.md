@@ -109,14 +109,17 @@ tape digest video.mp4 --out digest.mp4 --motion 0.08 --audio 0.12
 
 ## Cómo decide qué es “activo”
 
-Hoy es una heurística barata (no IA):
+Tape construye una línea de tiempo del video con varias señales:
 
-- Por cada segundo mide **movimiento** (cambio entre frames) y **audio** (RMS)
-- Un segundo es activo si `motion ≥ 0.12` **o** `audio ≥ 0.18` (defaults)
-- Junta segundos activos, fusiona huecos cortos y descarta tramos &lt; 2s
+1. **Movimiento en la zona central** del frame (ignora bordes)
+2. **Energía de audio** suavizada en el tiempo
+3. **Picos de audio** (impactos, voz, cambios bruscos)
 
-Sirve como baseline para clases, screen recordings, CCTV, etc.  
-Para casos finos (p. ej. rallies de pádel) se itera el detector encima del mismo índice.
+Un tramo se marca activo cuando esas señales cruzan umbrales.  
+Si con la configuración fija queda demasiado activo, el modo adaptativo ajusta los umbrales al percentil de intensidad.
+
+Eso alcanza para condensar clases, grabaciones de pantalla, CCTV y material similar.  
+Detectores más específicos (p. ej. rallies deportivos) se pueden sumar encima del mismo índice.
 
 ## Schema (v0)
 
@@ -148,7 +151,7 @@ sqlite3 lecture.mp4.tape ".schema"
 
 ## Estado
 
-**v0.1.4** en [PyPI](https://pypi.org/project/tape-video/) — útil para experimentos y demos.  
+**v0.1.5** en [PyPI](https://pypi.org/project/tape-video/) — útil para experimentos y demos.  
 El schema puede evolucionar; `tape_version` vive en `meta`. Ver [CHANGELOG.md](CHANGELOG.md).
 
 ## Apoyar el proyecto

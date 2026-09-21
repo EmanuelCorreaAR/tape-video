@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.5 — 2026-09-21
+
+- Mejor señal de actividad:
+  - ROI central (ignora bordes)
+  - smoothing temporal de motion/audio
+  - picos de audio (golpes/voz) como señal extra
+- Reindexar con `--force` para aplicar las nuevas señales
+
 ## 0.1.4 — 2026-09-21
 
 - `tape analyze` — estima el recorte sin generar video

@@ -52,7 +52,7 @@ def test_percentile() -> None:
 
 
 def test_suggest_adaptive() -> None:
-    bins = [(i, i + 1, i / 10, 0.0) for i in range(10)]
+    bins = [(float(i), float(i + 1), i / 10, 0.0, 0) for i in range(10)]
     m, a = suggest_adaptive_thresholds(bins, target_keep=0.3)
     assert m == a
     assert m > 0

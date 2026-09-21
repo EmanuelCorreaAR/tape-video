@@ -18,8 +18,12 @@ from tape.db import connect, init_db, tape_path_for
 from tape.ffmpeg_util import ffmpeg_bin, run
 from tape.format_util import fmt_duration
 from tape.probe import probe
+from tape.signals import audio_peak_flags, crop_roi, normalize_peak, smooth_series
 
 console = Console()
+
+ROI_MARGIN = 0.12
+SMOOTH_WINDOW = 3
 
 
 def _sha256_prefix(path: Path, limit: int = 8 * 1024 * 1024) -> str:
@@ -109,39 +113,34 @@ def _sample_frames(video: Path, out_dir: Path, fps: float = 1.0, width: int = 32
     return sorted(out_dir.glob("frame_*.jpg"))
 
 
-def _motion_luma_from_frames(frames: list[Path]) -> tuple[list[float], list[float]]:
+def _motion_luma_from_frames(
+    frames: list[Path],
+    *,
+    roi_margin: float = ROI_MARGIN,
+) -> tuple[list[float], list[float]]:
     if not frames:
         return [], []
 
     prev = None
-    motions: list[float] = []
     lumas: list[float] = []
     diffs: list[float] = []
 
     for path in frames:
         img = Image.open(path).convert("L")
         arr = np.asarray(img, dtype=np.float32) / 255.0
-        lumas.append(float(arr.mean()))
+        roi = crop_roi(arr, margin=roi_margin)
+        lumas.append(float(roi.mean()))
         if prev is None:
             diffs.append(0.0)
         else:
-            diffs.append(float(np.mean(np.abs(arr - prev))))
-        prev = arr
+            diffs.append(float(np.mean(np.abs(roi - prev))))
+        prev = roi
 
-    peak = max(diffs) if diffs else 1.0
-    if peak <= 0:
-        motions = [0.0] * len(diffs)
-    else:
-        motions = [min(1.0, d / peak) for d in diffs]
-    return motions, lumas
+    return normalize_peak(diffs), lumas
 
 
-def _onsets(rms: list[float], factor: float = 1.8, min_delta: float = 0.08) -> list[int]:
-    out = [0] * len(rms)
-    for i in range(1, len(rms)):
-        if rms[i] > rms[i - 1] * factor and (rms[i] - rms[i - 1]) >= min_delta:
-            out[i] = 1
-    return out
+def _onsets(rms: list[float]) -> list[int]:
+    return audio_peak_flags(rms)
 
 
 def index_video(
@@ -207,6 +206,12 @@ def index_video(
     while len(rms) < n_bins:
         rms.append(0.0)
     rms = rms[:n_bins]
+
+    # Suavizado temporal + picos de audio
+    motions = smooth_series(motions, window=SMOOTH_WINDOW)
+    rms = smooth_series(rms, window=SMOOTH_WINDOW)
+    motions = normalize_peak(motions)
+    rms = normalize_peak(rms)
     onsets = _onsets(rms)
 
     if out.exists():
@@ -230,14 +235,17 @@ def index_video(
             info["has_audio"],
         ),
     )
-    conn.execute(
-        "INSERT INTO meta(key, value) VALUES(?, ?)",
+    for key, value in (
         ("bin_s", str(bin_s)),
-    )
-    conn.execute(
-        "INSERT INTO meta(key, value) VALUES(?, ?)",
         ("sample_fps", str(sample_fps)),
-    )
+        ("roi_margin", str(ROI_MARGIN)),
+        ("smooth_window", str(SMOOTH_WINDOW)),
+        ("signal_version", "1"),
+    ):
+        conn.execute(
+            "INSERT INTO meta(key, value) VALUES(?, ?)",
+            (key, value),
+        )
 
     rows = []
     for i in range(n_bins):
@@ -262,8 +270,9 @@ def index_video(
     console.print(f"  Duración:    {fmt_duration(duration)}")
     console.print(f"  Resolución:  cada {bin_s:g}s → {n_bins} muestras")
     console.print(
-        f"  Señal:       movimiento"
-        + (" + audio" if info["has_audio"] and rms and max(rms) > 0 else " (sin audio usable)")
+        f"  Señal:       ROI central ({int((1-2*ROI_MARGIN)*100)}%) + smooth + picos audio"
+        if info["has_audio"] and rms and max(rms) > 0
+        else f"  Señal:       ROI central + smooth (sin audio usable)"
     )
     console.print(
         f"  Vista previa: ~{active_hint}s pasarían el umbral default de actividad "

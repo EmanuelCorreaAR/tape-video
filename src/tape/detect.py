@@ -8,6 +8,7 @@ from pathlib import Path
 from rich.console import Console
 
 from tape.db import connect, require_media
+from tape.signals import activity_score, is_active_bin
 
 console = Console()
 
@@ -28,7 +29,7 @@ def detect_activity(
     duration = float(media["duration_s"])
 
     bins = conn.execute(
-        "SELECT t0, t1, motion, audio_rms FROM timeline_bins ORDER BY t0"
+        "SELECT t0, t1, motion, audio_rms, audio_onset FROM timeline_bins ORDER BY t0"
     ).fetchall()
     if not bins:
         conn.close()
@@ -38,8 +39,15 @@ def detect_activity(
     for row in bins:
         motion = float(row["motion"] or 0)
         audio = float(row["audio_rms"] or 0)
-        active = motion >= motion_thresh or audio >= audio_thresh
-        score = max(motion, audio)
+        onset = int(row["audio_onset"] or 0)
+        active = is_active_bin(
+            motion,
+            audio,
+            onset,
+            motion_thresh=motion_thresh,
+            audio_thresh=audio_thresh,
+        )
+        score = activity_score(motion, audio, onset)
         active_flags.append((float(row["t0"]), float(row["t1"]), active, score))
 
     raw: list[tuple[float, float, float]] = []

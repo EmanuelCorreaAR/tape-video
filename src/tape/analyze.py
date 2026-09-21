@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from tape.db import connect, require_media
+from tape.signals import activity_score, is_active_bin
 
 
 @dataclass
@@ -21,13 +22,15 @@ class AnalyzeResult:
     n_segments_est: int
 
 
-def _load_scores(db_path: Path) -> tuple[float, list[tuple[float, float, float, float]]]:
-    """Returns (duration, [(t0, t1, motion, audio), ...])."""
+def _load_scores(
+    db_path: Path,
+) -> tuple[float, list[tuple[float, float, float, float, int]]]:
+    """Returns (duration, [(t0, t1, motion, audio, onset), ...])."""
     conn = connect(db_path)
     media = require_media(conn)
     duration = float(media["duration_s"])
     rows = conn.execute(
-        "SELECT t0, t1, motion, audio_rms FROM timeline_bins ORDER BY t0"
+        "SELECT t0, t1, motion, audio_rms, audio_onset FROM timeline_bins ORDER BY t0"
     ).fetchall()
     conn.close()
     bins = [
@@ -36,6 +39,7 @@ def _load_scores(db_path: Path) -> tuple[float, list[tuple[float, float, float, 
             float(r["t1"]),
             float(r["motion"] or 0),
             float(r["audio_rms"] or 0),
+            int(r["audio_onset"] or 0),
         )
         for r in rows
     ]
@@ -59,7 +63,7 @@ def percentile(values: list[float], p: float) -> float:
 
 
 def estimate_kept(
-    bins: list[tuple[float, float, float, float]],
+    bins: list[tuple[float, float, float, float, int]],
     motion_thresh: float,
     audio_thresh: float,
     *,
@@ -71,8 +75,14 @@ def estimate_kept(
     """Returns (kept_s, active_bins, n_segments)."""
     active_flags: list[tuple[float, float, bool]] = []
     active_bins = 0
-    for t0, t1, motion, audio in bins:
-        active = motion >= motion_thresh or audio >= audio_thresh
+    for t0, t1, motion, audio, onset in bins:
+        active = is_active_bin(
+            motion,
+            audio,
+            onset,
+            motion_thresh=motion_thresh,
+            audio_thresh=audio_thresh,
+        )
         if active:
             active_bins += 1
         active_flags.append((t0, t1, active))
@@ -121,21 +131,19 @@ def estimate_kept(
 
 
 def suggest_adaptive_thresholds(
-    bins: list[tuple[float, float, float, float]],
+    bins: list[tuple[float, float, float, float, int]],
     *,
     target_keep: float = 0.45,
 ) -> tuple[float, float]:
     """
-    Elige un umbral sobre score=max(motion,audio) para conservar ~target_keep
-    de los bins más intensos.
+    Elige un umbral sobre score (motion/audio + boost de picos)
+    para conservar ~target_keep de los bins más intensos.
     """
-    scores = [max(m, a) for _, _, m, a in bins]
+    scores = [activity_score(m, a, o) for _, _, m, a, o in bins]
     if not scores:
         return 0.12, 0.18
-    # umbral = percentil (1 - target_keep)
     p = max(0.0, min(100.0, (1.0 - target_keep) * 100.0))
     t = percentile(scores, p)
-    # piso mínimo para no marcar ruido total
     t = max(t, 0.05)
     return t, t
 
