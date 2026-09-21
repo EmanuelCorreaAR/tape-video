@@ -58,7 +58,7 @@ tape compress long.mp4 --out digest.mp4
 | `tape detect TARGET` | Escribe segmentos `activity` a partir de los bins |
 | `tape segments TARGET` | Lista segmentos |
 | `tape clip TARGET --out clips/` | Exporta clips por segmento |
-| `tape compress TARGET --out digest.mp4` | Deja solo actividad → un digest |
+| `tape compress TARGET --out digest.mp4` | Deja solo actividad → un digest + `.txt` resumen |
 
 `TARGET` puede ser el video o el archivo `.tape`.
 
@@ -96,6 +96,10 @@ sqlite3 lecture.mp4.tape ".schema"
 
 **v0.1 alpha** — útil para experimentos y demos. El schema puede evolucionar; `tape_version` vive en `meta`.
 
-## Licencia
+## Apoyar el proyecto
 
-MIT
+Si Tape te sirve, podés invitarme un cafecito: [cafecito.app/emacorreadev](https://cafecito.app/emacorreadev)
+
+## License
+
+Apache License 2.0

@@ -16,7 +16,7 @@ def ffmpeg_bin() -> str:
     path = shutil.which("ffmpeg")
     if not path:
         raise FFmpegNotFoundError(
-            "ffmpeg not found on PATH. Install it (e.g. `brew install ffmpeg`) and retry."
+            "No encontré ffmpeg en el PATH. Instalalo con:  brew install ffmpeg"
         )
     return path
 
@@ -26,7 +26,7 @@ def ffprobe_bin() -> str:
     path = shutil.which("ffprobe")
     if not path:
         raise FFmpegNotFoundError(
-            "ffprobe not found on PATH. Install ffmpeg (e.g. `brew install ffmpeg`) and retry."
+            "No encontré ffprobe en el PATH. Instalalo con:  brew install ffmpeg"
         )
     return path
 

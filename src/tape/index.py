@@ -16,6 +16,7 @@ from rich.progress import Progress
 
 from tape.db import connect, init_db, tape_path_for
 from tape.ffmpeg_util import ffmpeg_bin, run
+from tape.format_util import fmt_duration
 from tape.probe import probe
 
 console = Console()
@@ -164,7 +165,10 @@ def index_video(
     if duration <= 0:
         raise SystemExit("Could not read video duration via ffprobe.")
 
-    console.print(f"[bold]Indexing[/bold] {video.name} ({duration:.1f}s)")
+    console.print(
+        f"[bold]Indexando[/bold] {video.name}  "
+        f"({fmt_duration(duration)})"
+    )
 
     with tempfile.TemporaryDirectory(prefix="tape-") as tmp:
         tmp_path = Path(tmp)
@@ -173,15 +177,15 @@ def index_video(
         wav_path = tmp_path / "audio.wav"
 
         with Progress(console=console) as progress:
-            task = progress.add_task("Sampling frames…", total=3)
+            task = progress.add_task("Muestreando frames…", total=3)
             frames = _sample_frames(video, frames_dir, fps=sample_fps)
             progress.advance(task)
 
-            progress.update(task, description="Computing motion…")
+            progress.update(task, description="Midiendo movimiento…")
             motions, lumas = _motion_luma_from_frames(frames)
             progress.advance(task)
 
-            progress.update(task, description="Analyzing audio…")
+            progress.update(task, description="Analizando audio…")
             audio_ok = False
             rms: list[float] = []
             if info["has_audio"]:
@@ -250,5 +254,23 @@ def index_video(
     conn.commit()
     conn.close()
 
-    console.print(f"[green]Wrote[/green] {out}  ({n_bins} bins @ {bin_s}s)")
+    active_hint = sum(1 for m, a in zip(motions, rms) if m >= 0.12 or a >= 0.18)
+    console.print()
+    console.print("[bold green]Índice listo[/bold green]")
+    console.print(f"  Archivo:     {out.name}")
+    console.print(f"  Qué es:      base SQLite con la línea de tiempo del video")
+    console.print(f"  Duración:    {fmt_duration(duration)}")
+    console.print(f"  Resolución:  cada {bin_s:g}s → {n_bins} muestras")
+    console.print(
+        f"  Señal:       movimiento"
+        + (" + audio" if info["has_audio"] and rms and max(rms) > 0 else " (sin audio usable)")
+    )
+    console.print(
+        f"  Vista previa: ~{active_hint}s pasarían el umbral default de actividad "
+        f"({100 * active_hint / max(1, n_bins):.0f}% del video)"
+    )
+    console.print()
+    console.print("Siguiente:")
+    console.print(f"  tape detect {video.name}")
+    console.print(f"  tape compress {video.name} --out digest.mp4")
     return out

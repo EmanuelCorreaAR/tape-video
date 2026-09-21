@@ -21,6 +21,7 @@ def detect_activity(
     merge_gap_s: float = 1.5,
     pad_s: float = 0.5,
     replace: bool = True,
+    quiet: bool = False,
 ) -> list[tuple[float, float, float]]:
     conn = connect(db_path)
     media = require_media(conn)
@@ -95,7 +96,11 @@ def detect_activity(
     conn.commit()
     conn.close()
 
-    console.print(f"[green]Detected[/green] {len(final)} activity segments")
+    if not quiet:
+        console.print(
+            f"[green]Listo[/green] {len(final)} tramos activos "
+            f"(movimiento ≥ {motion_thresh:.2f} o audio ≥ {audio_thresh:.2f})"
+        )
     return final
 
 
