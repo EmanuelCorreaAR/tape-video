@@ -1,0 +1,34 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+dist/
+build/
+.venv/
+venv/
+.env
+.env.*
+.pytest_cache/
+
+# Tape artifacts
+*.tape
+*.tape.db
+*.tape-journal
+*.tape-wal
+*.tape-shm
+proxy/
+.cache/
+tmp/
+*.mp4
+*.mov
+*.mkv
+*.webm
+!tests/fixtures/.gitkeep
+
+# OS / IDE
+.DS_Store
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tape-video"
+version = "0.1.0"
+description = "SQLite for long videos — local temporal index, query, and clip"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Emanuel Correa" }]
+keywords = ["video", "sqlite", "ffmpeg", "timeline", "index", "cli"]
+classifiers = [
+  "Development Status :: 3 - Alpha",
+  "Environment :: Console",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Video",
+]
+dependencies = [
+  "typer>=0.12",
+  "rich>=13",
+  "numpy>=1.26",
+  "pillow>=10",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+tape = "tape.cli:app"
+
+[project.urls]
+Homepage = "https://github.com/EmanuelCorreaAR/tape"
+Repository = "https://github.com/EmanuelCorreaAR/tape"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+tape = ["schema/*.sql"]
