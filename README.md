@@ -1,31 +1,31 @@
 # Tape
 
-**SQLite for long videos.**
+**SQLite para videos largos.**
 
-Tape turns a long video into a small, local, queryable temporal index — then lets you clip and compress from that index.
+Tape convierte un video largo en un índice temporal chico, local y consultable — y después te deja cortar y comprimir desde ese índice.
 
 ```text
 video.mp4  →  video.mp4.tape  →  SQL / detect / clips / digest
 ```
 
-Not an editor. Not a cloud API. An **embedded timeline database** next to your file.
+No es un editor. No es una API en la nube. Es una **base de datos temporal embebida** al lado de tu archivo.
 
-## Why
+## Por qué
 
-Long videos are mostly dead time. Most pipelines still upload and process everything.
+Los videos largos son, en su mayoría, tiempo muerto. La mayoría de los pipelines igual suben y procesan todo.
 
-Tape does the opposite:
+Tape hace lo contrario:
 
-1. **Index cheap signals locally** (motion, audio energy)
-2. **Query the timeline** (SQL)
-3. **Cut only what matters** (ffmpeg)
+1. **Indexa señales baratas en local** (movimiento, energía de audio)
+2. **Consulta la línea de tiempo** (SQL)
+3. **Corta solo lo que importa** (ffmpeg)
 
 ## Quickstart
 
-Requirements:
+Requisitos:
 
 - Python 3.9+
-- [ffmpeg](https://ffmpeg.org/) on your `PATH` (`brew install ffmpeg`)
+- [ffmpeg](https://ffmpeg.org/) en tu `PATH` (`brew install ffmpeg`)
 
 ```bash
 git clone https://github.com/EmanuelCorreaAR/tape.git
@@ -41,61 +41,61 @@ tape detect lecture.mp4
 tape compress lecture.mp4 --out digest.mp4
 ```
 
-Demo promise:
+La promesa del demo:
 
 ```bash
 tape compress long.mp4 --out digest.mp4
-# 2h → ~15–25m of active segments (depends on content + thresholds)
+# 2h → ~15–25m de segmentos activos (depende del contenido y los umbrales)
 ```
 
-## Commands
+## Comandos
 
-| Command | What it does |
-|---------|----------------|
-| `tape index VIDEO` | Build `VIDEO.tape` (SQLite) with 1s motion/audio bins |
-| `tape info TARGET` | Show duration, bins, segments |
-| `tape sql TARGET "SELECT …"` | Query the index |
-| `tape detect TARGET` | Write `activity` segments from bins |
-| `tape segments TARGET` | List segments |
-| `tape clip TARGET --out clips/` | Export segment clips |
-| `tape compress TARGET --out digest.mp4` | Keep only activity → one digest |
+| Comando | Qué hace |
+|---------|----------|
+| `tape index VIDEO` | Arma `VIDEO.tape` (SQLite) con bins de motion/audio cada 1s |
+| `tape info TARGET` | Muestra duración, bins y segmentos |
+| `tape sql TARGET "SELECT …"` | Consulta el índice |
+| `tape detect TARGET` | Escribe segmentos `activity` a partir de los bins |
+| `tape segments TARGET` | Lista segmentos |
+| `tape clip TARGET --out clips/` | Exporta clips por segmento |
+| `tape compress TARGET --out digest.mp4` | Deja solo actividad → un digest |
 
-`TARGET` can be the video or the `.tape` file.
+`TARGET` puede ser el video o el archivo `.tape`.
 
 ## Schema (v0)
 
-The `.tape` file is SQLite:
+El archivo `.tape` es SQLite:
 
-- `media` — path, duration, size, hash prefix
-- `timeline_bins` — fixed grid (`motion`, `audio_rms`, `audio_onset`, `luma`)
-- `segments` — derived intervals (`kind`, `start_s`, `end_s`, `score`, `source`)
-- `meta` — `tape_version`, params
+- `media` — path, duración, tamaño, hash parcial
+- `timeline_bins` — grilla fija (`motion`, `audio_rms`, `audio_onset`, `luma`)
+- `segments` — intervalos derivados (`kind`, `start_s`, `end_s`, `score`, `source`)
+- `meta` — `tape_version`, parámetros
 
-Inspect anything with:
+Podés inspeccionarlo con:
 
 ```bash
 sqlite3 lecture.mp4.tape ".schema"
 ```
 
-## Design principles
+## Principios de diseño
 
-1. **Local-first** — indexing runs on your machine
-2. **Proxy ≠ original** — understand cheaply, cut from the source
-3. **SQL is the interface** — the index is inspectable and portable
-4. **Plugins later** — core stores signals; meaning (speech, sports, CCTV) plugs in
-5. **Cheap by default** — CPU, ~1 fps sampling, no GPU required
+1. **Local-first** — el indexado corre en tu máquina
+2. **Proxy ≠ original** — entendés barato, cortás del source
+3. **SQL es la interfaz** — el índice es inspeccionable y portable
+4. **Plugins después** — el core guarda señales; el significado (speech, deportes, CCTV) se enchufa
+5. **Barato por defecto** — CPU, ~1 fps de sampling, sin GPU
 
-## Non-goals (for now)
+## Non-goals (por ahora)
 
-- Full NLE / timeline UI
-- Cloud upload pipeline
-- Mandatory ML models
-- Replacing ffmpeg
+- UI tipo NLE / timeline completa
+- Pipeline de upload a la nube
+- Modelos de ML obligatorios
+- Reemplazar ffmpeg
 
-## Status
+## Estado
 
-**v0.1 alpha** — useful for experiments and demos. Schema may still evolve; `tape_version` is stored in `meta`.
+**v0.1 alpha** — útil para experimentos y demos. El schema puede evolucionar; `tape_version` vive en `meta`.
 
-## License
+## Licencia
 
 MIT
